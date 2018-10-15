@@ -409,16 +409,6 @@ This is an example of a paginated request for a Child Collection's members.
         "dc": "http://purl.org/dc/terms/",
         "dts": "https://w3id.org/dts/api#"
     },
-    "@id": "general",
-    "@type": "Collection",
-    "totalItems": 2,
-    "title": "Collection Générale de l'École Nationale des Chartes",
-    "dts:dublincore": {
-        "dc:publisher": ["École Nationale des Chartes", "https://viaf.org/viaf/167874585"],
-        "dc:title": [
-            {"@language": "fr", "@value" : "Collection Générale de l'École Nationale des Chartes"}
-        ]
-    },
     "@id" : "lettres_de_poilus",
     "@type" : "Collection",
     "totalItems" : 10000,
