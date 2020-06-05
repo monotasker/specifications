@@ -1,12 +1,79 @@
 # Collections Endpoint
 
-The collections endpoint is used for navigating collections. A collection contains metadata for the collection itself and an array of members.  Each member is either a collection or the metadata for a document.
+The collections endpoint is used for accessing metadata on individual documents and their relationships. For DTS purposes, a "document" is any entity with a textual representation: a letter, novel, manuscript, inscription, play, interview transcript, etc. A set of related documents is here called a "collection". A collection consists of a set of members and common metadata that describes those members. A member **must** be either a document or another collection. Collections can be nested to an arbitrary depth and a collection does not necessarily need to have any children.
+
+## The Collections Endpoint and Document Structures
+
+Note that a "document" need not be a complete work. One might choose to represent a literary work as a collection, with each of its several parts represented as documents. Within the DTS collections structure, though, whatever entity is defined as a "document" **cannot** have children. Any internal structure within that textual entity is represented only by way of the JSON properties of the document: `dts:citeDepth`, `dts:citeStructure`, and any similar properties that are declared. Of course, the internal structure of a document may be accessed via the "documents" and "navigation" endpoints.
+
+## Using Collections to Represent Relationships
+
+DTS does not specify any particular hierarchy of collections. A collection might provide all its child documents in a flat collection. Or a collection might group documents in sub-collections based on whatever relationships are deemed appropriate for the implementation at hand: geography, time, author, topic, etc. The collection structure can also be used to represent the relationships between parts or versions of a single work. A collection might, for example, link documents that are all chapters in one book. Or the collection might link transcriptions of different manuscripts attesting the same composition. Or, again, the collection might link competing transcriptions of a single manuscript. The "collection" itself simply represents that some common relationship links the documents or sub-collections that are its members. The precise nature of that relationship may be represented in the metadata for each collection. In this way, the collections endpoint provides for a highly flexible representation of relationships.
+
+For example, we might have a single book that is attested in several manuscripts and has also been translated into several languages. We might represent this situation by establishing a top-level collection representing the book. We might then create two collections as members for that top-level collection: one representing manuscripts and one representing translations. Each of those member collections would contain the relevant documents as its members:
+
+                                               collection (book)
+                                    --------------------------------------
+                                    |                                     |
+                    collection (manuscripts)                        collection (translations)
+                    ------------------------                        -------------------------
+                    |                      |                        |                       |
+    document (manuscript A)   document (manuscript B)    document (translation A)    document (translation B)
+
+Exactly how the metadata should express the nature of these relationships will be explored below.
+
+Note that a document or collection may have more than one parent. This allows the collection structure to graph-like rather than a single tree. In a collection of letters, for example, we might want to organize the documents both by author and by the geographic location where it was composed. So these relationships might look something like this:
+
+                                    collection (letters)
+                        -------------------------------------------------
+                        |                                               |
+
+                collection (regions)                                collection (authors)
+                --------------------                                ---------------------
+                |                  |                                |                   |
+
+    collection (Italy)     collection (Barbados)      collection (Medici)    collection (Smith)
+    ------------------     ---------------------      -------------------    ------------------
+            |                  |                               |                     |
+            |                  ------document(Smith from Barbados)--------------------
+            |                                                  |
+            ---------------document (Medici from Italy)---------
+
+The only limitation on this structure is that the top level must be a single collection with no parents. Unlike in an arbitrary graph, the relations between collections and documents is also hierarchical. There is a clear "top" to the structure, and the relationships are all hierarchical parent-child links. Peer or "sibling" relationships are simply inferred when entities share a common parent.
+
+This does not mean, though, that the collections hierarchy must involve consistent "layers" or "levels." We might represent a collection of public statements made by an individual (Bill Nye) like this:
+
+                                collection (statements by Bill Nye)
+                ------------------------------------------------------------------------
+                |                                                                       |
+    collection (media formats)                                                     collection (2020)
+    --------------------------------------------------------                       ------------------
+    |                                                       |                             |  |
+    collection (social media)                       collection (magazines)                |  |
+    -------------------------                       ----------------------                |  |
+    |                       |                               |                             |  |
+    collection (twitter)    collection (facebook)           |                             |  |
+        |                               |                   |                             |  |
+        |                               |                   |                             |  |
+        |                               document (statement A) ----------------------------  |
+        |                                                                                    |
+        ------------------------------ document (statement B) --------------------------------
+
+Here we have a collection "statements by Bill Nye" with two sub-collections. The sub-collection "2020" holds all of the statements made in that year. A sibling collection at the same hierarchical level is labeled "media formats" and organizes documents based on the medium of their publication. The two documents "statement A" and "statement B" will ultimately be included in both collections. These documents are direct children in the "statements" collection. In the "media formats" collection, though, there are further levels of hierarchical organization before we get to those documents. "Media formats" has two further collections, "social media" and "magazines". The "social media" collection has two further child collections "twitter" and "facebook", but we have decided not to subdivide "magazines" any further. One statement by Nye, we'll call it "statement A", was made in 2020. It was published first as a Facebook post and then re-published in a magazine article. So the document entity representing the text of "statement A" is a direct child of three parent collections: "facebook", "magazines", and "2020". If we were concerned about absolute hierarchical levels, these parents would be at the fourth, third, and second levels of the hierarchy (respectively). So the hierarchical level of "statement A" would be conflicted. In the relatively free structuring constraints of the collections endpoint, though, this is not necessarily a problem.
+
+This example illustrates the flexibility of the collections endpoint. We have chosen in this implementation not to assign any significance to absolute levels of the collections hierarchy. In another implementation we might decide that it is semantically useful to use a more rigidly structured organization. You are free to use the basic relations of parent-child as you see fit. The only constraints that keep the collections endpoint from being a truly arbitrary graph are (a)
+the requirement of a single top-level parent collection, and (b) the hierarchical, directional nature of the parent-child relationships.
+
+## URLs for the Collections Endpoint
+
+As with other endpoints, DTS does not require that you use a particular URL. If your implementation has a base URL `www.example.org/api` then you can call the endpoint "collections" and expose it at `www.example.org/api/collections`. Or you can choose to call it something else, perhaps "library", and expose the endpoint at `www.example.org/api/library`. In either case your documentation should clearly indicate the URL that corresponds in your implementation to the collections endpoint.
 
 DTS does not specify URLs. Clients should discover URLs using navigation and link relations since URLs may differ among implementations.
 
-### Hydra Representation and Hierarchy
+## Representing metadata
 
-DTS does not specify any particular hierarchy of collections. A collection might provide all documents in a flat collection or a collection hierarchy organized by geography, time, or any other convenient logical grouping.
+Each collection or document is a metadata record. These records **must** take the form of Hydra-compliant JSON objects.
+
 
 ## Scheme
 
@@ -34,7 +101,7 @@ Item properties :
 - (Optional) `dts:download` contains a link or a list of links to a downloadable format of the object (TODO: decide on link or map of type:URL)
 - (Optional) `dts:citeStructure` holds a declared citation tree, see [Sub-collection readable](#sub-collection-readable)
 
-## URI 
+## URI
 
 ### Query Parameters
 
@@ -81,14 +148,14 @@ Here is a template of the URI for Collections API. The route itself (`/dts/api/c
 
 This is an example of a top-level Collection that groups texts into 3 categories.
 
-#### Example of url : 
+#### Example of url :
 
 - `/api/dts/collections/`
 - `/api/dts/collections/?id=general`
 
 #### Headers
 
-| Key | Value | 
+| Key | Value |
 | --- | ----- |
 | Content-Type | Content-Type: application/ld+json |
 
@@ -150,13 +217,13 @@ This is an example of a top-level Collection that groups texts into 3 categories
 
 The example is a child of the parent root collection. It contains a single textual work as a member collection.
 
-#### Example of url : 
+#### Example of url :
 
 - `/api/dts/collections/?id=lasciva_roma`
 
 #### Headers
 
-| Key | Value | 
+| Key | Value |
 | --- | ----- |
 | Content-Type | Content-Type: application/ld+json |
 
@@ -222,15 +289,15 @@ The example is a child collection. It represent a single textual work and its me
 
 #### Note
 
-Although, this is optional, the expansion of `@type:Resource`'s metadata is advised to avoid multiple API calls. 
+Although, this is optional, the expansion of `@type:Resource`'s metadata is advised to avoid multiple API calls.
 
-#### Example of url : 
+#### Example of url :
 
 - `/api/dts/collections/?id=urn:cts:latinLit:phi1103.phi001`
 
 #### Headers
 
-| Key | Value | 
+| Key | Value |
 | --- | ----- |
 | Content-Type | Content-Type: application/ld+json |
 
@@ -307,16 +374,16 @@ Although, this is optional, the expansion of `@type:Resource`'s metadata is advi
 }
 ```
 
-### Child Readable Collection (i.e. a textual Resource) 
+### Child Readable Collection (i.e. a textual Resource)
 This example is a child Readable Collection, i.e. a textual Resource which is composed of passages of readable text. The response includes fields which identify the urls for the other 2 DTS api endpoints for further exploration of this Collection: dts:references for retrieval of passage references and dts:passage for retrieval of the entire collection of text passages (i.e the full document itself).
 
-#### Example of url : 
+#### Example of url :
 
 - `/api/dts/collections/?id=urn:cts:latinLit:phi1103.phi001.lascivaroma-lat1`
 
 #### Headers
 
-| Key | Value | 
+| Key | Value |
 | --- | ----- |
 | Content-Type | Content-Type: application/ld+json |
 
@@ -357,7 +424,7 @@ This example is a child Readable Collection, i.e. a textual Resource which is co
     "dts:passage": "/api/dts/documents?id=urn:cts:latinLit:phi1103.phi001.lascivaroma-lat1",
     "dts:references": "/api/dts/navigation?id=urn:cts:latinLit:phi1103.phi001.lascivaroma-lat1",
     "dts:download": "https://raw.githubusercontent.com/lascivaroma/priapeia/master/data/phi1103/phi001/phi1103.phi001.lascivaroma-lat1.xml",
-    "dts:citeDepth": 2, 
+    "dts:citeDepth": 2,
     "dts:citeStructure": [
         {
             "dts:citeType": "poem",
@@ -390,7 +457,7 @@ This example is a child Readable Collection, i.e. a textual Resource which is co
     "dts:passage": "/api/dts/documents?id=https://digitallatin.org/ids/Calpurnius_Siculus-Bucolica",
     "dts:references": "/api/dts/navigation?id=https://digitallatin.org/ids/Calpurnius_Siculus-Bucolica",
     "dts:download": "https://github.com/sjhuskey/Calpurnius_Siculus/blob/master/editio.xml",
-    "dts:citeDepth": 2, 
+    "dts:citeDepth": 2,
     "dts:citeStructure": [
         {
             "dts:citeType": "front"
@@ -412,13 +479,13 @@ This example is a child Readable Collection, i.e. a textual Resource which is co
 
 This is an example of a paginated request for a Child Collection's members.
 
-#### Example of url : 
+#### Example of url :
 
 - `/api/dts/collections/?id=lettres_de_poilus&page=19`
 
 #### Headers
 
-| Key | Value | 
+| Key | Value |
 | --- | ----- |
 | Content-Type | Content-Type: application/ld+json |
 
@@ -457,15 +524,15 @@ This is an example of a paginated request for a Child Collection's members.
 
 ### Parent Collection Query
 
-This is an example of a query for the parents of a Collection. Note that, in this context, `totalItems` == `totalParents` 
+This is an example of a query for the parents of a Collection. Note that, in this context, `totalItems` == `totalParents`
 
-#### Example of url : 
+#### Example of url :
 
 - `/api/dts/collections/?id=urn:cts:latinLit:phi1103.phi001.lascivaroma-lat1&nav=parents`
 
 #### Headers
 
-| Key | Value | 
+| Key | Value |
 | --- | ----- |
 | Content-Type | Content-Type: application/ld+json |
 
@@ -505,7 +572,7 @@ This is an example of a query for the parents of a Collection. Note that, in thi
     "dts:passage": "/api/dts/documents?id=urn:cts:latinLit:phi1103.phi001.lascivaroma-lat1",
     "dts:references": "/api/dts/navigation?id=urn:cts:latinLit:phi1103.phi001.lascivaroma-lat1",
     "dts:download": "https://raw.githubusercontent.com/lascivaroma/priapeia/master/data/phi1103/phi001/phi1103.phi001.lascivaroma-lat1.xml",
-    "dts:citeDepth": 2, 
+    "dts:citeDepth": 2,
     "dts:citeStructure": [
         {
             "dts:citeType": "poem",
